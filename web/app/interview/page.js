@@ -1,29 +1,25 @@
 'use client';
 
-import Link from 'next/link';
 import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ResumeSelection from '../_components/ResumeSelection';
 import { useSession } from '../_components/SessionProvider';
 import SessionGate from '../_components/SessionGate';
 import SpokenInterview from './SpokenInterview';
 
+function Room() {
+  const { savedResume, answerSaved, practiceMicrophone, setPracticeMicrophone } = useSession();
+  const params = useSearchParams();
+  if (!savedResume) return null;
+  return <SpokenInterview key={`interview-${savedResume.id}`} resumeId={savedResume.id} resumeFilename={savedResume.filename}
+    initialMicrophone={practiceMicrophone} autoStart={params.get('start') === '1'} onMicrophoneChange={setPracticeMicrophone} onAnswerSaved={answerSaved} />;
+}
+
 export default function InterviewPage() {
-  const { savedResume, answerSaved } = useSession();
-  return (
-    <>
-      <div className="page-heading"><h1>Interview</h1><p>Technical and HR practice, one question at a time.</p></div>
-      <SessionGate requireResume>
-        <Suspense fallback={<p role="status">Loading selected resume…</p>}>
-        <ResumeSelection>
-        {savedResume && <>
-          <p className="resume-caption">Resume: {savedResume.filename}</p>
-          <SpokenInterview key={`interview-${savedResume.id}`} resumeId={savedResume.id} onAnswerSaved={answerSaved} />
-          <p className="resume-caption">Leaving this page or refreshing loses unsaved recordings. Start the interview again to retrieve a pending question.</p>
-          <div className="page-actions"><Link href="/resumes">Back to resumes</Link><Link href="/history">View history</Link></div>
-        </>}
-        </ResumeSelection>
-        </Suspense>
-      </SessionGate>
-    </>
-  );
+  const { user, savedResume, resumeLinked, isRestoring, restoreError } = useSession();
+  const gated = !user || !savedResume || !resumeLinked || isRestoring || restoreError;
+  return <div className="interview-room">
+    {gated && <div className="dashboard-heading"><h1>Interview practice</h1><p>Use your verified resume for one combined technical and HR interview.</p></div>}
+    <SessionGate requireResume><Suspense fallback={<p className="surface state-message" role="status">Loading selected resume…</p>}><ResumeSelection><Room /></ResumeSelection></Suspense></SessionGate>
+  </div>;
 }

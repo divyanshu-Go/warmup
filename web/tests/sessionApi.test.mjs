@@ -65,6 +65,7 @@ test('question speech 401 also triggers expiry recovery', async () => {
 test('return destinations allow only app routes and retain resume selection', () => {
   assert.equal(safeReturnPath('/'), '/');
   assert.equal(safeReturnPath('/interview?resume=abc'), '/interview?resume=abc');
+  assert.equal(safeReturnPath('/interview/setup?resume=abc'), '/interview/setup?resume=abc');
   for (const value of ['https://evil.example/interview', '//evil.example/history', '/access', '/unknown', 'javascript:alert(1)', null]) {
     assert.equal(safeReturnPath(value), '/resumes');
   }

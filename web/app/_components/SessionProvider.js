@@ -17,6 +17,7 @@ export default function SessionProvider({ children }) {
   const [fileError, setFileError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
+  const [practiceMicrophone, setPracticeMicrophone] = useState('');
   const [isRestoring, setIsRestoring] = useState(true);
   const [restoreError, setRestoreError] = useState('');
   const [resumeError, setResumeError] = useState('');
@@ -31,6 +32,7 @@ export default function SessionProvider({ children }) {
   const selectionRequest = useRef(0);
 
   function clearPrivateState() {
+    setPracticeMicrophone('');
     epoch.current++;
     selectionRequest.current++;
     setUser(null);
@@ -202,7 +204,7 @@ export default function SessionProvider({ children }) {
   }
 
   return <SessionContext.Provider value={{
-    user, savedResume, draftResume, resumeLinked: !!user && !!savedResume,
+    user, savedResume, draftResume, resumeLinked: !!user && !!savedResume, practiceMicrophone, setPracticeMicrophone,
     file, fileError, fileInput, isUploading, isRestoring, restoreError, apiStatus, authBusy, setAuthBusy,
     verificationCode, setVerificationCode, verificationSent, setVerificationSent,
     historyVersion, resumeVersion, resumeError, isSelectingResume,

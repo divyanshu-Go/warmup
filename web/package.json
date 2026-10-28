@@ -9,6 +9,7 @@
     "test:voice": "node --test tests/questionAudio.test.mjs",
     "test:routes": "node --test tests/routes.test.cjs",
     "test:session": "node --test tests/sessionApi.test.mjs",
+    "test:interview": "node --test tests/interviewSafety.test.mjs",
     "start": "next start --hostname 127.0.0.1 --port 3000"
   },
   "dependencies": {

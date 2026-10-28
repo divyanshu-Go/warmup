@@ -35,13 +35,13 @@ export default function AppHeader() {
       </Link>
       <nav className="site-nav" aria-label="Main navigation">
         {[['/', 'Dashboard'], ['/resumes', 'Resumes'], ['/history', 'History']].map(([href, label]) => (
-          <Link key={href} href={href} aria-current={pathname === href ? 'page' : href === '/' && pathname === '/interview' ? 'location' : undefined}>{label}</Link>
+          <Link key={href} href={href} aria-current={pathname === href ? 'page' : href === '/' && pathname.startsWith('/interview') ? 'location' : undefined}>{label}</Link>
         ))}
       </nav>
       <div className="account-controls">
         {isRestoring ? <span role="status">Checking session…</span> : user ? <>
           <span className="account-email">{user.email}</span>
-          <button type="button" onClick={logout} disabled={busy || isUploading || authBusy}>{busy ? 'Signing out…' : 'Sign out'}</button>
+          <button type="button" data-leave-practice onClick={logout} disabled={busy || isUploading || authBusy}>{busy ? 'Signing out…' : 'Sign out'}</button>
         </> : <Link href="/access?next=%2F" aria-current={pathname === '/access' ? 'page' : undefined}>Sign in</Link>}
         {error && <p className="error" role="alert">{error}</p>}
       </div>

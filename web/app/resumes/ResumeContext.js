@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { requestApi } from '../../lib/api';
 
-export default function ResumeContext({ resumeId }) {
+export default function ResumeContext({ resumeId, embedded = false }) {
   const [query, setQuery] = useState('');
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export default function ResumeContext({ resumeId }) {
   }
 
   return (
-    <section className="upload-card results" aria-labelledby="context-heading">
+    <section className={embedded ? 'resume-search-body' : 'upload-card results'} aria-labelledby="context-heading">
       <h2 id="context-heading">Find relevant resume passages</h2>
       <p>Search a topic to see which parts of your resume could support an interview answer.</p>
       <form onSubmit={search}>

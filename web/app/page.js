@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSession } from './_components/SessionProvider';
 import RecentPractice from './_components/RecentPractice';
-import { interviewPath } from '../lib/navigation.mjs';
+import { interviewSetupPath } from '../lib/navigation.mjs';
 
 export default function Home() {
   const { user, savedResume, draftResume, resumeLinked, isRestoring, restoreError, restoreSession, historyVersion, isSelectingResume } = useSession();
@@ -53,7 +53,7 @@ export default function Home() {
       <section className="practice-prompt" aria-labelledby="practice-prompt-heading">
         <span className="practice-symbol" aria-hidden="true">↗</span><p className="eyebrow">ONE ANSWER AT A TIME</p>
         <h2 id="practice-prompt-heading">Make your next answer<br />a little stronger.</h2><p>Technical and HR questions in one spoken interview. Listen, answer, then learn from your feedback.</p>
-        {ready && !isSelectingResume ? <Link className="file-label" href={interviewPath(savedResume.id)}>Start Practicing <span aria-hidden="true">→</span></Link>
+        {ready && !isSelectingResume ? <Link className="file-label" href={interviewSetupPath(savedResume.id)}>Start Practicing <span aria-hidden="true">→</span></Link>
           : <p className="practice-prerequisite" role={isSelectingResume ? 'status' : undefined}>{isSelectingResume ? 'Loading your selected resume…' : 'Your interview will be ready after you verify a resume.'}</p>}
         {ready && <span className="practice-hint">Any pending question continues when you start.</span>}
       </section>

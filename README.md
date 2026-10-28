@@ -5,7 +5,7 @@ ChromaDB and Groq. Users upload a resume, verify its email address, and practise
 one combined technical and HR interview. Recorded answers are transcribed and
 scored, with saved feedback available in interview history.
 
-## Status and handoff (28 October 2026)
+## Status and handoff (29 October 2026)
 
 The retained migration features are implemented. The user confirmed resume
 upload/parsing, email verification, saved-resume access, Chroma context, spoken
@@ -18,8 +18,15 @@ saved-resume browsing and safer replacement uploads. The additive `sign_in_codes
 table has been applied to this workspace's configured database. New-account and
 resume-ownership rules remain resume-email verification based. The shared UI
 foundation is manually verified. Desktop Update 1 now makes Home the returning-user
-dashboard and uses Dashboard/Resumes/History navigation. This update awaits manual
-verification before further page redesigns. Tab-switch alert changes and unsaved-work protection remain deferred.
+dashboard and uses Dashboard/Resumes/History navigation. Desktop Update 2 now
+organizes `/resumes` as an active-first Resume Library with secondary upload and
+search panels. The current library update awaits manual verification before
+further page redesigns. Desktop Update 3 adds interview preparation and a guided
+room, replacing tab-switch alerts with unsaved-work warnings. This interview
+update now awaits manual verification.
+Desktop Update 4 adds the Practice History page, loaded-answer summaries and
+filters, shared expandable feedback rows on Dashboard/History, and a heading for
+guarded interview visits. This final desktop step awaits user verification.
 This is a working local
 application, not a claim of production deployment readiness.
 
@@ -67,6 +74,35 @@ application, not a claim of production deployment readiness.
    across the verified user's linked resumes, newest first, ten per page.
    Expand entries, refresh or load more. Saving an answer refreshes history.
    Signing out clears the displayed private data.
+   Resume/type filters apply only to the answers loaded so far; load more to
+   include older answers. The summary uses the loaded answers before filters,
+   including zero scores, and does not claim lifetime totals or trends. Failed
+   refreshes retain the previous results with a notice; failed pagination can
+   retry the same offset. Feedback includes a link to its owned resume.
+
+### Desktop History update verification (29 October 2026)
+
+- All 59 frontend tests passed: route/view, session/API, microphone, question
+  audio and interview safety checks. The optimized Next.js build passed for
+  `/`, `/access`, `/resumes`, `/interview/setup`, `/interview` and `/history`.
+- Actual local app browser checks: guest Home -> Resumes -> protected History ->
+  email-code sign-in with History return path, and direct guarded Setup/Room.
+- Isolated browser journey (`cd web; node tests/interviewFlow.browser.cjs --journey`):
+  actual pages and session provider with synthetic API/router/media boundaries.
+  Checked invalid-file recovery, parsed draft review, invalid-code recovery,
+  verification -> active resume -> setup microphone check -> question -> recording
+  -> stop/preview (no submission) -> explicit submission -> saved feedback -> next
+  HR question -> exit -> Dashboard -> History -> practice again. Also checked
+  owned resume switching, sign-out, expiry -> email-code sign-in -> History,
+  keyboard feedback expansion/focus, type/resume filters, pagination, retry after
+  failed pagination, retained results after failed refresh and filtered empty
+  recovery. Inspected History at a 1440px desktop viewport. No browser console
+  errors were reported in the checked actual/fixture pages.
+- The fixture uses mock email codes, parsed details, audio and scores. It never
+  contacts FastAPI/Groq/SMTP or alters application records. Real PDF extraction,
+  email delivery, physical microphone permissions, Whisper, Orpheus and database
+  persistence still require the user's normal manual verification. No backend,
+  schema, authentication rule, model, scoring or data ownership changes were made.
 
 No MCQ, ATS analysis or old dashboard is included in this application. Resume
 PDF files and answer recordings are not permanently stored. Unsaved browser
@@ -203,7 +239,9 @@ local embedding model and take longer than subsequent requests.
 | `web/app/resumes/ResumeDetails.js` | Saved/extracted resume details markup |
 | `web/app/resumes/ResumeContext.js` | Resume-context search interface |
 | `web/app/resumes/SavedResumes.js`, `_components/ResumeSelection.js` | Paginated owned-resume list and query-based detail selection |
-| `web/app/interview/SpokenInterview.js` | Active interview and recording workflow |
+| `web/app/interview/setup/page.js`, `microphoneCheck.mjs` | Resume/format preparation and local microphone readiness/resource cleanup |
+| `web/app/interview/SpokenInterview.js`, `InterviewRoomView.js` | Existing audio/question/submission controller with synchronous operation guards and guided room presentation |
+| `web/app/interview/leaveGuard.mjs` | Unsaved-recording warnings for links, sign-out and document unload |
 | `web/app/interview/microphone.mjs` | Microphone level/silence monitor |
 | `web/app/interview/questionAudio.mjs` | Question audio loading, replay, cancellation and cleanup |
 | `web/app/history/InterviewHistory.js` | Read-only paginated completed-answer list |
@@ -232,6 +270,29 @@ and `GET /api/interview/history`. The text `/{id}/answer` endpoint remains for
 compatibility; the current UI submits recordings.
 
 ## Checks and manual verification
+
+Desktop Update 3 (Interview setup/room): 54 frontend checks passed (29 route/view,
+five session/API, 11 microphone/playback, nine readiness/leave-safety). Compilation
+passed; production prerendering hit Windows `EPERM` in `.next`, and the elevated
+build retry was declined. A separate isolated browser fixture verified the real
+setup and interview components with synthetic microphone/audio and a mocked API:
+local input detection/stop; Start Interview; question playback state; recording;
+stop/preview; Record Again; double-click submission (one request); simulated scoring
+failure with cached transcript; retry (one saved result); feedback; and Next
+Question resetting the room. No real account, database or Groq calls were made.
+Real microphone permission, Whisper/Orpheus and end-to-end saved history remain
+manual checks on the configured app. The isolated fixture server was stopped.
+
+
+Desktop Update 2 (Resume Library): all 41 frontend checks passed (25 route/rendering,
+five session/API, 11 microphone/playback), and the Next.js production build passed
+for every route. The browser check at 1440px verified the signed-out empty/upload
+layout, no horizontal overflow, and invalid-file selection recovery. A temporary
+non-PDF fixture produced the expected validation message with upload disabled;
+it was not submitted. No API/backend, schema, session-provider or data changes
+were made. Signed-in switching, pagination and real parse/verify completion remain
+manual verification items.
+
 
 Desktop Update 1: 34 frontend tests passed (18 route/rendering, five session/API,
 11 microphone/playback); the Next.js production build passed for every existing
@@ -321,6 +382,7 @@ npm run test:audio
 npm run test:voice
 npm run test:routes
 npm run test:session
+npm run test:interview
 npm run build
 ```
 
@@ -377,8 +439,11 @@ theme per page.
   search for the selected active resume. `?resume=<id>` restores an owned selection.
 - `/access` signs existing users in through email codes or verifies an uploaded
   resume to create/reuse its account and link it. There are no passwords.
-- `/interview?resume=<id>` uses the selected owned resume with the unchanged
-  interview/audio component. Starting again retrieves a pending question.
+- `/interview/setup?resume=<id>` prepares the selected owned resume and offers an
+  optional local microphone check. Start Practicing now leads here.
+- `/interview?resume=<id>` is the guided combined interview room. Starting again
+  retrieves a pending question. Setup's Start Interview link adds `start=1` to
+  begin question retrieval on arrival; microphone recording is always explicit.
 - `/history` shows completed turns across linked resumes using the existing API.
 - Shared state persists across Next.js links and back/forward navigation, not a
   full reload. No resume text, code, token or recording is saved in browser storage.
@@ -386,8 +451,10 @@ theme per page.
 - Replacement drafts remain separate until verified. Neither draft dismissal nor
   sign-out deletes stored uploads; no new retention/deletion policy was introduced.
 - Leaving Interview or session-expiry recovery releases the microphone/player and
-  loses unsaved recordings. A visible reminder explains this; the leave-warning
-  guard and tab-switch alert changes are deferred to the UI phase.
+  loses unsaved recordings. Links, explicit exit and sign-out warn about unsaved
+  audio; refresh/document unload uses the browser's native warning where supported.
+  Tab-switch alerts were removed. Browser Back/Forward cannot reliably be cancelled
+  in every browser and are not trapped by adding history entries.
 - Expiry is detected on a protected request returning 401, rather than by polling.
   Sign-in returns to the requested app route but never resubmits an answer.
 
@@ -437,3 +504,76 @@ expandable transcript/feedback; no-history and no-resume accounts; failed-histor
 retry; sign-out clearing activity; expiry returning to Dashboard after sign-in;
 and existing Resumes, History and Interview navigation. Other page redesigns are
 outside this update; desktop is the focus, with basic overflow protection only.
+
+### Desktop Update 2: Resume Library
+
+`/resumes` now leads with Your Resumes and the active verified resume. Its card
+shows the selected filename, candidate/email/difficulty, skill chips and an
+experience excerpt, with Start Practicing targeting that resume ID. All extracted
+skills, experience, education, upload date and reference remain available under
+View all extracted details; the visible excerpt is not a new AI-generated summary.
+
+Saved resumes use compact rows with the real upload date, active status and Use
+resume/View resume links. Existing refresh, ten-row pagination, retry behavior and
+owned URL selection are unchanged. Returning users open Upload another resume to
+reveal an inline panel; the first-visit panel starts open. The form remains mounted
+while hidden, preserving an existing file selection. Parsing and errors reopen the
+panel, and successful parsing focuses a separate draft review card.
+
+Draft review offers Verify Email & Continue (returning to `/resumes`) and Dismiss
+Draft. A missing extracted email explains corrected-PDF recovery. Dismissal only
+clears the in-memory draft; the disclosure explicitly says it does not delete the
+stored upload. Neither file selection nor parsing updates the active verified
+resume. Search this resume is collapsed by default and retains the existing scoped
+passage-search endpoint, loading, results and error states. It is hidden while a
+different URL-selected resume is loading or is unavailable.
+
+Verify with a signed-in account: identify the active resume; open/close upload;
+select invalid and valid PDFs without losing the active resume; retry a failed
+upload; parse and inspect the draft; dismiss without losing the active resume;
+verify a draft and confirm it becomes active; select an older saved resume and
+refresh its URL; use Refresh/Load more; expand full details; and expand passage
+search. Start Practicing must always target the currently displayed active resume.
+
+### Desktop Update 3: preparation and focused practice
+
+Start Practicing from Dashboard/Resumes opens `/interview/setup` with the selected
+resume ID. Setup displays the resume, existing combined format and parsed suggested
+difficulty. Its microphone check uses the existing input-level monitor without a
+MediaRecorder or upload. The check runs only after a click, can be stopped, and
+releases tracks on navigation, permission cancellation and monitor failure. Device
+choice stays in memory for the room and clears on sign-out.
+
+The room separates Listen, Record, Review and Feedback. These numbered steps are
+workflow stages, not question numbers: the API has no question-count field. Actual
+question type/difficulty come from its existing response. Stop Recording creates a
+preview, never a submission. Preview includes Record Again and Submit Recording.
+Success shows transcript, saved score/feedback, primary Next Question and secondary
+View History. Failed submissions retain the audio and any returned transcript for
+an explicit retry. Synchronous operation refs block duplicate starts/submissions
+and conflicting microphone, preview and question-audio actions. The existing MIME
+selection, five-minute/10-MB limits, silence guard and API payloads remain intact.
+
+Unsaved audio triggers confirmation on normal navigation links, Exit practice and
+sign-out. Refresh/closing warnings use `beforeunload`; browsers control whether
+that prompt appears and its wording. Same-page anchors and new-tab links do not
+warn. A submission-in-progress warning explains that the server may still save
+an answer, so History should be checked before retrying after leaving. No guard
+submits, persists or restores audio. Programmatic expiry recovery still clears
+private state immediately. Browser history traversal is not universally blockable;
+use Exit practice for a guarded exit. No history trapping or automatic retries
+were introduced.
+
+`node tests/interviewFlow.browser.cjs` builds an ignored fixture under
+`web/test_artifacts/interview-flow` and serves it at port 3128. It renders the real
+components with clearly labelled synthetic media, mocked session/API boundaries
+and local copies of the shared CSS. It has no FastAPI/provider/database access.
+The first synthetic submission deliberately fails; retry succeeds. This supplements
+unit/render checks, rather than certifying real Whisper/Orpheus connectivity.
+
+Manual verification: choose a saved resume → Start Practicing → check/stop the
+microphone → Start Interview → listen/replay → record/stop → preview/re-record →
+submit → inspect transcript/score/feedback → Next Question → View History. Also
+check denied/unavailable microphones, silence, voice failure, failed submission
+retry, cancelling an exit warning, refreshing an unsaved answer, session expiry,
+and pending-question recovery after leaving. Do not expect unsaved audio recovery.

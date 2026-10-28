@@ -1,35 +1,8 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-
-# Django
-db.sqlite3
-*.log
-
-# Environment
-.env
-.env.*
-.env.example
-
-# Vector DB
-chroma_db/
-
-# Node
+.venv/
+.next/
 node_modules/
-dist/
-build/
-npm-debug.log*
-.eslintcache
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*.sw?
-
-# OS
-Thumbs.db
-
+.env*
+__pycache__/
+chroma_db/
+chroma_test_db/
+test_artifacts/

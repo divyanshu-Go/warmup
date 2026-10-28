@@ -1,9 +1,21 @@
+let sessionGeneration = 0;
+
+export function invalidateSessionRequests() {
+  sessionGeneration++;
+}
+
+function sessionExpired() {
+  invalidateSessionRequests();
+  window.dispatchEvent(new Event('interview:session-expired'));
+}
+
 export function apiUrl(path) {
   const base = process.env.NEXT_PUBLIC_API_URL || `http://${window.location.hostname}:8001`;
   return `${base.replace(/\/$/, '')}${path}`;
 }
 
 export async function requestApi(path, body) {
+  const generation = sessionGeneration;
   const options = { credentials: 'include' };
   if (body !== undefined) {
     options.method = 'POST';
@@ -16,20 +28,25 @@ export async function requestApi(path, body) {
   }
   const response = await fetch(apiUrl(path), options);
   const data = await response.json();
+  if (generation !== sessionGeneration) throw new Error('Your account changed. Please retry the action.');
   if (!response.ok) {
     const error = new Error(typeof data.detail === 'string' ? data.detail : data.detail?.message || 'Request failed. Please try again.');
     error.status = response.status;
     error.transcript = data.detail?.transcript;
+    if (response.status === 401 && path !== '/api/auth/me') sessionExpired();
     throw error;
   }
   return data;
 }
 
 export async function loadQuestionAudio(turnId, signal) {
+  const generation = sessionGeneration;
   const response = await fetch(apiUrl(`/api/interview/${turnId}/speech`), {
     method: 'POST', credentials: 'include', signal,
   });
+  if (generation !== sessionGeneration) throw new Error('Your account changed. Please retry the action.');
   if (!response.ok) {
+    if (response.status === 401) sessionExpired();
     const data = await response.json().catch(() => ({}));
     throw new Error(typeof data.detail === 'string' ? data.detail : 'Question voice could not be loaded. Please retry.');
   }

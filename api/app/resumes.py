@@ -1,12 +1,10 @@
 import os
 from io import BytesIO
-from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
 
 import psycopg
-from dotenv import dotenv_values
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from groq import APIError, Groq
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field, ValidationError
@@ -74,6 +72,40 @@ def latest_resume(response: Response, user: dict = Depends(get_current_user)):
     return {"resume": {"id": str(row[0]), "filename": row[1], "parsed_data": row[2], "created_at": row[3]}}
 
 
+@router.get("/api/resumes")
+def list_resumes(response: Response, offset: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=50),
+                 user: dict = Depends(get_current_user)):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        with get_connection() as connection:
+            rows = connection.execute(
+                """SELECT id, filename, created_at FROM resume_uploads WHERE user_id = %s
+                   ORDER BY created_at DESC, id DESC LIMIT %s OFFSET %s""",
+                (UUID(user["id"]), limit + 1, offset),
+            ).fetchall()
+    except (psycopg.Error, RuntimeError, ValueError):
+        raise HTTPException(503, "Your saved resumes could not be loaded. Please try again.") from None
+    return {"resumes": [{"id": str(row[0]), "filename": row[1], "created_at": row[2]} for row in rows[:limit]],
+            "has_more": len(rows) > limit}
+
+
+@router.get("/api/resumes/{resume_id}")
+def get_resume(resume_id: UUID, response: Response, user: dict = Depends(get_current_user)):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        with get_connection() as connection:
+            row = connection.execute(
+                """SELECT id, filename, parsed_data, created_at FROM resume_uploads
+                   WHERE id = %s AND user_id = %s""",
+                (resume_id, UUID(user["id"])),
+            ).fetchone()
+    except (psycopg.Error, RuntimeError, ValueError):
+        raise HTTPException(503, "Your saved resume could not be loaded. Please try again.") from None
+    if not row:
+        raise HTTPException(404, "Resume not found for your account.")
+    return {"resume": {"id": str(row[0]), "filename": row[1], "parsed_data": row[2], "created_at": row[3]}}
+
+
 def extract_pdf_text(content):
     try:
         reader = PdfReader(BytesIO(content))
@@ -91,9 +123,6 @@ def extract_pdf_text(content):
 
 def parse_resume(text):
     api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        # Reuse the legacy app's provider key without loading its other settings.
-        api_key = dotenv_values(Path(__file__).resolve().parents[3] / ".env").get("GROQ_API_KEY")
     if not api_key:
         raise HTTPException(503, "Resume parsing is not configured. Set GROQ_API_KEY on the server.")
 

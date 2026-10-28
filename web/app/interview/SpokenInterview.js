@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { loadQuestionAudio, requestApi } from './api';
+import { loadQuestionAudio, requestApi } from '../../lib/api';
 import { createQuestionAudioPlayer } from './questionAudio.mjs';
 import { MIN_INPUT_LEVEL, monitorMicrophone } from './microphone.mjs';
 

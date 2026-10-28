@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { requestApi } from './api';
+import { requestApi } from '../../lib/api';
 
 export default function ResumeContext({ resumeId }) {
   const [query, setQuery] = useState('');

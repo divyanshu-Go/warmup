@@ -50,3 +50,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS interview_one_pending_turn
 
 ALTER TABLE interview_turns ADD COLUMN IF NOT EXISTS transcript TEXT;
 ALTER TABLE interview_turns ADD COLUMN IF NOT EXISTS audio_sha256 TEXT;
+
+-- Returning-user sign-in is independent of resume-link verification challenges.
+CREATE TABLE IF NOT EXISTS sign_in_codes (
+    email TEXT PRIMARY KEY REFERENCES app_users(email),
+    code_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL
+);

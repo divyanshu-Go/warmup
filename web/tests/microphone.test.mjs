@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { inputLevel, monitorMicrophone } from '../app/microphone.mjs';
+import { inputLevel, monitorMicrophone } from '../app/interview/microphone.mjs';
 
 function fakeAudioContext({ suspended = false, failSource = false } = {}) {
     let instance;

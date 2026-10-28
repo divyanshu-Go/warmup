@@ -12,6 +12,7 @@ from psycopg.types.json import Jsonb
 from app.auth import hash_token
 from app.db import get_connection
 from app.main import app
+from app.rag import CHROMA_PATH
 
 
 @skipUnless(os.getenv('RUN_CONTEXT_TESTS') == '1', 'Set RUN_CONTEXT_TESTS=1 for Chroma/Neon integration')
@@ -21,8 +22,8 @@ class ChromaContextIntegrationTests(TestCase):
         from chromadb.config import Settings
         from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 
-        legacy_path = Path(__file__).resolve().parents[3] / 'chroma_db' / 'chroma.sqlite3'
-        legacy_hash = hashlib.sha256(legacy_path.read_bytes()).hexdigest() if legacy_path.exists() else None
+        live_path = CHROMA_PATH / 'chroma.sqlite3'
+        live_hash = hashlib.sha256(live_path.read_bytes()).hexdigest() if live_path.exists() else None
         path = Path(__file__).resolve().parent.parent / 'chroma_test_db'
         name = 'context-test-' + uuid4().hex
         settings = Settings(anonymized_telemetry=False)
@@ -77,5 +78,5 @@ class ChromaContextIntegrationTests(TestCase):
         scope = {'$and': [{'user_id': str(owner)}, {'resume_id': str(current_resume)}]}
         persisted = reopened.query(query_texts=['Python'], where=scope, n_results=1, include=['metadatas'])
         self.assertEqual(persisted['metadatas'][0][0]['resume_id'], str(current_resume))
-        if legacy_hash:
-            self.assertEqual(hashlib.sha256(legacy_path.read_bytes()).hexdigest(), legacy_hash)
+        if live_hash:
+            self.assertEqual(hashlib.sha256(live_path.read_bytes()).hexdigest(), live_hash)

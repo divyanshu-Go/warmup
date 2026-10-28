@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .db import get_connection
 from .mail import send_verification_email
@@ -36,6 +36,22 @@ class CodeVerification(CodeRequest):
     code: str = Field(pattern=r"^[0-9]{6}$")
 
 
+class SignInRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value):
+        value = value.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
+            raise ValueError("Enter a valid email address.")
+        return value
+
+
+class SignInVerification(SignInRequest):
+    code: str = Field(pattern=r"^[0-9]{6}$")
+
+
 @contextmanager
 def database():
     try:
@@ -55,6 +71,80 @@ def hash_token(token):
 
 def user_details(row):
     return {"id": str(row[0]), "email": row[1], "name": row[2]}
+
+
+def set_session_cookie(response, token):
+    response.set_cookie(
+        COOKIE_NAME, token, max_age=SESSION_SECONDS, httponly=True,
+        secure=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
+        samesite="lax", path="/",
+    )
+
+
+@router.post("/sign-in/send-code")
+def send_sign_in_code(body: SignInRequest):
+    message = {"message": "If this email has an account, a code will arrive shortly. New users should upload a resume. Wait 60 seconds before resending."}
+    try:
+        with database() as connection:
+            user = connection.execute("SELECT id FROM app_users WHERE email = %s", (body.email,)).fetchone()
+            if not user:
+                return message
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            salt = secrets.token_hex(16)
+            updated = connection.execute(
+                """INSERT INTO sign_in_codes (email, code_hash, salt, expires_at)
+                   VALUES (%s, %s, %s, CURRENT_TIMESTAMP + INTERVAL '10 minutes')
+                   ON CONFLICT (email) DO UPDATE SET
+                       code_hash = EXCLUDED.code_hash, salt = EXCLUDED.salt,
+                       attempts = 0, sent_at = CURRENT_TIMESTAMP, expires_at = EXCLUDED.expires_at
+                   WHERE sign_in_codes.sent_at <= CURRENT_TIMESTAMP - INTERVAL '60 seconds'
+                   RETURNING email""",
+                (body.email, hash_code(code, salt), salt),
+            ).fetchone()
+            if updated:
+                # A delivery exception rolls back the challenge. The public response
+                # stays generic for unknown accounts, cooldown and delivery failures.
+                send_verification_email(body.email, code)
+    except HTTPException as error:
+        if error.status_code != 503:
+            raise
+    return message
+
+
+def verify_sign_in(body):
+    with database() as connection:
+        row = connection.execute(
+            """SELECT u.id, u.email, u.name, v.code_hash, v.salt, v.attempts,
+                      v.expires_at > CURRENT_TIMESTAMP
+               FROM sign_in_codes v JOIN app_users u ON u.email = v.email
+               WHERE v.email = %s FOR UPDATE OF v""",
+            (body.email,),
+        ).fetchone()
+        if not row or row[5] >= 5 or not row[6]:
+            return None
+        if not hmac.compare_digest(hash_code(body.code, row[4]), row[3]):
+            connection.execute("UPDATE sign_in_codes SET attempts = attempts + 1 WHERE email = %s", (body.email,))
+            return None
+        connection.execute(
+            "UPDATE sign_in_codes SET attempts = 5, expires_at = CURRENT_TIMESTAMP WHERE email = %s", (body.email,),
+        )
+        token = secrets.token_urlsafe(32)
+        connection.execute(
+            """INSERT INTO user_sessions (token_hash, user_id, expires_at)
+               VALUES (%s, %s, CURRENT_TIMESTAMP + INTERVAL '7 days')""",
+            (hash_token(token), row[0]),
+        )
+    return user_details(row[:3]), token
+
+
+@router.post("/sign-in/verify-code")
+def verify_sign_in_code(body: SignInVerification, response: Response):
+    result = verify_sign_in(body)
+    if result is None:
+        raise HTTPException(400, "Invalid or expired code. Request a new code if needed.")
+    user, token = result
+    set_session_cookie(response, token)
+    return {"user": user}
 
 
 @router.post("/send-code")
@@ -136,11 +226,7 @@ def verify_code(body: CodeVerification, response: Response):
     if result is None:
         raise HTTPException(400, "Invalid or expired code. Request a new code if needed.")
     user, token = result
-    response.set_cookie(
-        COOKIE_NAME, token, max_age=SESSION_SECONDS, httponly=True,
-        secure=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
-        samesite="lax", path="/",
-    )
+    set_session_cookie(response, token)
     return {"user": user, "resume_id": str(body.resume_id)}
 
 

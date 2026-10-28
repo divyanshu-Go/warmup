@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createQuestionAudioPlayer } from '../app/questionAudio.mjs';
+import { createQuestionAudioPlayer } from '../app/interview/questionAudio.mjs';
 
 function setup(load) {
     const elements = [];

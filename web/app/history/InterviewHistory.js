@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { requestApi } from './api';
+import { requestApi } from '../../lib/api';
+import InterviewHistoryEntry from './InterviewHistoryEntry';
 
 export default function InterviewHistory({ refreshKey }) {
   const [entries, setEntries] = useState([]);
@@ -56,22 +57,7 @@ export default function InterviewHistory({ refreshKey }) {
       {loading && <p role="status">Loading interview history…</p>}
       {error && <p className="error" role="alert">{error}</p>}
       {!loading && !error && entries.length === 0 && <p>No completed answers yet. Submit an interview recording to see your saved feedback here.</p>}
-      {entries.map(entry => <details key={entry.id} className="history-entry">
-        <summary>
-          <strong>{entry.kind === 'hr' ? 'HR' : 'Technical'} · {entry.score}/10</strong>
-          <span className="history-question">{entry.question}</span>
-          <span className="history-date">{new Date(entry.answered_at || entry.created_at).toLocaleString()}</span>
-        </summary>
-        <p className="preview-note">Resume: {entry.filename} · Difficulty: {entry.difficulty}</p>
-        <h3>Question</h3>
-        <p className="interview-question">{entry.question}</p>
-        <h3>Your answer</h3>
-        <p className="interview-feedback">{entry.answer}</p>
-        <h3>Score: {entry.score}/10</h3>
-        <h3>Feedback</h3>
-        <p className="interview-feedback">{entry.feedback}</p>
-        <p className="preview-note">Reference: {entry.id}</p>
-      </details>)}
+      {entries.map(entry => <InterviewHistoryEntry key={entry.id} entry={entry} />)}
       {entries.length > 0 && <p>{entries.length} saved answers shown.</p>}
       {hasMore && <button className="file-label" type="button" onClick={() => loadHistory(nextOffset)} disabled={loading}>Load more</button>}
     </section>
